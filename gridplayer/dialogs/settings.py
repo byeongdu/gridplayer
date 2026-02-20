@@ -98,6 +98,10 @@ class SettingsDialog(QDialog, Ui_SettingsDialog):
             "video_defaults/paused": self.videoPaused,
             "video_defaults/stream_quality": self.streamQuality,
             "video_defaults/auto_reload_timer": self.streamAutoReloadTimer,
+            "video_defaults/crosshair_enabled": self.videoCrosshairEnabled,
+            "video_defaults/crosshair_color": self.videoCrosshairColor,
+            "video_defaults/crosshair_thickness": self.videoCrosshairThickness,
+            "video_defaults/crosshair_full": self.videoCrosshairFull,
             "misc/overlay_hide": self.timeoutOverlayFlag,
             "misc/overlay_timeout": self.timeoutOverlay,
             "misc/mouse_hide": self.timeoutMouseHideFlag,
@@ -172,6 +176,7 @@ class SettingsDialog(QDialog, Ui_SettingsDialog):
         self.logLimitSize.setRange(1, 1024 * 1024)
         self.logLimitBackups.setRange(1, 1000)
         self.timeoutVideoInit.setRange(1, 1000)
+        self.videoCrosshairThickness.setRange(1, 10)
         self.playerRecentListSize.setRange(1, 100)
 
         self.gridSize.setRange(0, 1000)

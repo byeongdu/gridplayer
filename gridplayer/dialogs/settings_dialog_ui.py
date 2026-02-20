@@ -426,6 +426,51 @@ class Ui_SettingsDialog:
             1, QtWidgets.QFormLayout.FieldRole, self.horizontalLayout_5
         )
         self.lay_page_defaults_video.addLayout(self.formLayout_9)
+        # Crosshair settings
+        self.videoCrosshairEnabled = QtWidgets.QCheckBox(self.page_defaults_video)
+        self.videoCrosshairEnabled.setObjectName("videoCrosshairEnabled")
+        self.lay_page_defaults_video.addWidget(self.videoCrosshairEnabled)
+
+        self.formLayout_crosshair = QtWidgets.QFormLayout()
+        self.formLayout_crosshair.setFieldGrowthPolicy(
+            QtWidgets.QFormLayout.FieldsStayAtSizeHint
+        )
+        self.formLayout_crosshair.setObjectName("formLayout_crosshair")
+
+        self.videoCrosshairColor = QtWidgets.QLineEdit(self.page_defaults_video)
+        self.videoCrosshairColor.setObjectName("videoCrosshairColor")
+        self.formLayout_crosshair.setWidget(
+            0, QtWidgets.QFormLayout.FieldRole, self.videoCrosshairColor
+        )
+        self.videoCrosshairColorLabel = QtWidgets.QLabel(self.page_defaults_video)
+        self.videoCrosshairColorLabel.setObjectName("videoCrosshairColorLabel")
+        self.formLayout_crosshair.setWidget(
+            0, QtWidgets.QFormLayout.LabelRole, self.videoCrosshairColorLabel
+        )
+
+        self.videoCrosshairThickness = QtWidgets.QSpinBox(self.page_defaults_video)
+        self.videoCrosshairThickness.setObjectName("videoCrosshairThickness")
+        self.formLayout_crosshair.setWidget(
+            1, QtWidgets.QFormLayout.FieldRole, self.videoCrosshairThickness
+        )
+        self.videoCrosshairThicknessLabel = QtWidgets.QLabel(self.page_defaults_video)
+        self.videoCrosshairThicknessLabel.setObjectName("videoCrosshairThicknessLabel")
+        self.formLayout_crosshair.setWidget(
+            1, QtWidgets.QFormLayout.LabelRole, self.videoCrosshairThicknessLabel
+        )
+
+        self.videoCrosshairFull = QtWidgets.QCheckBox(self.page_defaults_video)
+        self.videoCrosshairFull.setObjectName("videoCrosshairFull")
+        self.formLayout_crosshair.setWidget(
+            2, QtWidgets.QFormLayout.FieldRole, self.videoCrosshairFull
+        )
+        self.videoCrosshairFullLabel = QtWidgets.QLabel(self.page_defaults_video)
+        self.videoCrosshairFullLabel.setObjectName("videoCrosshairFullLabel")
+        self.formLayout_crosshair.setWidget(
+            2, QtWidgets.QFormLayout.LabelRole, self.videoCrosshairFullLabel
+        )
+
+        self.lay_page_defaults_video.addLayout(self.formLayout_crosshair)
         spacerItem2 = QtWidgets.QSpacerItem(
             20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
         )
@@ -708,6 +753,10 @@ class Ui_SettingsDialog:
         self.streamQualityLabel.setText(_translate("SettingsDialog", "Stream quality"))
         self.label_13.setText(_translate("SettingsDialog", "Auto reload time"))
         self.label_14.setText(_translate("SettingsDialog", "(min)"))
+        self.videoCrosshairEnabled.setText(_translate("SettingsDialog", "Show crosshair on videos"))
+        self.videoCrosshairColorLabel.setText(_translate("SettingsDialog", "Crosshair color (hex)"))
+        self.videoCrosshairThicknessLabel.setText(_translate("SettingsDialog", "Crosshair thickness"))
+        self.videoCrosshairFullLabel.setText(_translate("SettingsDialog", "Full crosshair lines"))
         self.playerVideoDriverBox.setTitle(
             _translate("SettingsDialog", "Video Decoder")
         )

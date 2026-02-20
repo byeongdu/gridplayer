@@ -5,12 +5,99 @@ from pathlib import Path
 from PyQt5.QtCore import QSize, Qt, pyqtSignal
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QLabel, QStackedLayout, QWidget
+from PyQt5.QtGui import QPainter, QPen, QColor
+
+
+class CrosshairOverlay(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+
+        self._enabled = False
+        self._color = QColor(255, 0, 0, 200)
+        self._thickness = 1
+        self._full = True
+        # position in widget coordinates; if None, use center
+        self._pos = None
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        # Ensure the overlay background is translucent so only painted lines are visible
+        self.setAttribute(Qt.WA_NoSystemBackground)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAutoFillBackground(False)
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = bool(enabled)
+        self.setVisible(self._enabled)
+        self.update()
+
+    def set_color(self, qcolor: QColor) -> None:
+        self._color = qcolor
+        self.update()
+
+    def set_thickness(self, thickness: int) -> None:
+        try:
+            self._thickness = int(thickness)
+        except Exception:
+            self._thickness = 1
+        self.update()
+
+    def set_full(self, full: bool) -> None:
+        self._full = bool(full)
+        self.update()
+
+    def set_position(self, x: int | None, y: int | None) -> None:
+        """Set crosshair position in widget pixel coordinates. Use (None,None) to reset to center."""
+        try:
+            if x is None or y is None:
+                self._pos = None
+            else:
+                self._pos = (int(x), int(y))
+        except Exception:
+            self._pos = None
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        # Always erase to fully transparent first so the widget never
+        # shows an opaque background over the native VLC rendering surface.
+        painter.setCompositionMode(QPainter.CompositionMode_Clear)
+        painter.fillRect(self.rect(), Qt.transparent)
+        painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+
+        if not self._enabled:
+            painter.end()
+            return
+
+        pen = QPen(self._color)
+        pen.setWidth(self._thickness)
+        painter.setPen(pen)
+
+        w = self.width()
+        h = self.height()
+
+        if self._pos is None:
+            cx = w // 2
+            cy = h // 2
+        else:
+            cx = max(0, min(w, self._pos[0]))
+            cy = max(0, min(h, self._pos[1]))
+
+        # Draw horizontal and vertical lines across center
+        if self._full:
+            painter.drawLine(0, cy, w, cy)
+            painter.drawLine(cx, 0, cx, h)
+        else:
+            # short centered lines
+            gap = min(w, h) // 10
+            painter.drawLine(cx - gap, cy, cx + gap, cy)
+            painter.drawLine(cx, cy - gap, cx, cy + gap)
+        painter.end()
 
 from gridplayer.params.static import VideoAspect, VideoCrop
 from gridplayer.utils.qt import QABC, QT_ASPECT_MAP, qt_connect
 from gridplayer.vlc_player.static import Media, MediaInput
 from gridplayer.vlc_player.video_driver_base import VLCVideoDriver
 from gridplayer.widgets.video_status import VideoStatus
+from gridplayer.settings import Settings
 
 DEFAULT_FPS = 25.0
 
@@ -82,12 +169,15 @@ class VideoFrameVLC(QWidget, metaclass=QABC):
 
         self.audio_only_placeholder = VideoStatus(parent=self, icon="audio-only")
         self.pause_snapshot = PauseSnapshot(parent=self)
+        self.crosshair_overlay = CrosshairOverlay(parent=self)
 
         self.ui_helper_widgets()
 
         self.video_surface = self.ui_video_surface()
 
         self.layout().addWidget(self.video_surface)
+        # overlay sits above video surface; stack mode is StackAll so later additions overlay earlier ones
+        self.layout().addWidget(self.crosshair_overlay)
         self.layout().addWidget(self.pause_snapshot)
         self.layout().addWidget(self.audio_only_placeholder)
 
@@ -168,6 +258,26 @@ class VideoFrameVLC(QWidget, metaclass=QABC):
         self.pause_snapshot.setWindowFlags(Qt.WindowTransparentForInput)
         self.pause_snapshot.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.pause_snapshot.hide()
+
+        self.crosshair_overlay.setMouseTracking(True)
+        self.crosshair_overlay.hide()
+
+        # apply global defaults from settings
+        try:
+            enabled = Settings().get("video_defaults/crosshair_enabled")
+            color = Settings().get("video_defaults/crosshair_color")
+            thickness = Settings().get("video_defaults/crosshair_thickness")
+            full = Settings().get("video_defaults/crosshair_full")
+
+            # QColor accepts hex string like '#RRGGBB' or named colors
+            qcolor = QColor(color) if color else QColor(255, 0, 0)
+
+            self.crosshair_overlay.set_color(qcolor)
+            self.crosshair_overlay.set_thickness(thickness)
+            self.crosshair_overlay.set_full(full)
+            self.crosshair_overlay.set_enabled(enabled)
+        except Exception:
+            pass
 
     def crash_emit(self, exception_txt) -> None:
         self.crash.emit(exception_txt)
@@ -314,6 +424,42 @@ class VideoFrameVLC(QWidget, metaclass=QABC):
         self._crop = crop
 
         self.adjust_view()
+
+    def set_crosshair(self, enabled: bool) -> None:
+        """Enable or disable crosshair overlay for this video frame."""
+        try:
+            self.crosshair_overlay.set_enabled(enabled)
+        except Exception:
+            pass
+
+    def set_crosshair_position(self, x: int | None, y: int | None) -> None:
+        """Set crosshair position in widget pixel coordinates. Use (None,None) to reset to center."""
+        try:
+            self.crosshair_overlay.set_position(x, y)
+            # enabling overlay when user sets a custom position
+            if x is not None and y is not None:
+                self.crosshair_overlay.set_enabled(True)
+        except Exception:
+            pass
+
+    def set_crosshair_color(self, qcolor) -> None:
+        """Set crosshair color (expects a QColor)."""
+        try:
+            self.crosshair_overlay.set_color(qcolor)
+        except Exception:
+            pass
+
+    def set_crosshair_thickness(self, thickness: int) -> None:
+        try:
+            self.crosshair_overlay.set_thickness(thickness)
+        except Exception:
+            pass
+
+    def set_crosshair_full(self, full: bool) -> None:
+        try:
+            self.crosshair_overlay.set_full(full)
+        except Exception:
+            pass
 
     def set_audio_track(self, track_id):
         self.media.cur_audio_track_id = track_id

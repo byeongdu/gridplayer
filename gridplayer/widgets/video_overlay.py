@@ -1,5 +1,5 @@
 from PyQt5.QtCore import QEvent, QPoint, QRect, Qt, QTimer, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QGuiApplication, QPalette, QRegion
+from PyQt5.QtGui import QColor, QGuiApplication, QPainter, QPen, QPalette, QRegion
 from PyQt5.QtWidgets import (
     QApplication,
     QGraphicsOpacityEffect,
@@ -17,6 +17,7 @@ from gridplayer.widgets.video_overlay_buttons import (
     OverlayExitButton,
     OverlayPlayPauseButton,
     OverlayVolumeButton,
+    OverlayCrosshairButton,
 )
 from gridplayer.widgets.video_overlay_elements import (
     OverlayBorder,
@@ -52,6 +53,7 @@ class OverlayBlock(QWidget):
     exit_clicked = pyqtSignal()
     play_pause_clicked = pyqtSignal()
     mute_unmute_clicked = pyqtSignal()
+    crosshair_clicked = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -59,6 +61,29 @@ class OverlayBlock(QWidget):
         self.setMouseTracking(True)
 
         self._set_opacity(0.5)
+
+        # Crosshair state - initialize from settings
+        self._crosshair_enabled = False
+        self._crosshair_pos = None
+        self._crosshair_color = QColor(255, 0, 0, 200)
+        self._crosshair_thickness = 2
+        self._crosshair_full = False
+
+        try:
+            self._crosshair_enabled = bool(
+                Settings().get("video_defaults/crosshair_enabled")
+            )
+            color = Settings().get("video_defaults/crosshair_color")
+            if color:
+                self._crosshair_color = QColor(color)
+            thickness = Settings().get("video_defaults/crosshair_thickness")
+            if thickness is not None:
+                self._crosshair_thickness = int(thickness)
+            full = Settings().get("video_defaults/crosshair_full")
+            if full is not None:
+                self._crosshair_full = bool(full)
+        except Exception:
+            pass
 
         self.ui_setup()
 
@@ -84,6 +109,7 @@ class OverlayBlock(QWidget):
             (self.progress_bar.mouse_left, self.floating_progress.on_mouse_left),
             (self.exit_button.clicked, self.exit),
             (self.play_pause_button.clicked, self.play_pause),
+            (self.crosshair_button.clicked, self.crosshair),
             (self.progress_bar.position_changed, self.emit_position),
             (self.volume_button.clicked, self.mute_unmute),
             (self.volume_bar.position_changed, self.emit_volume_position),
@@ -146,11 +172,13 @@ class OverlayBlock(QWidget):
         self.progress_bar = OverlayProgressBar(parent=self)
         self.progress_bar_placeholder = QWidget(parent=self)
         self.volume_button = OverlayVolumeButton(parent=self)
+        self.crosshair_button = OverlayCrosshairButton(parent=self)
 
         self.bottom_bar.addWidget(self.play_pause_button)
         self.bottom_bar.addWidget(self.label_progress)
         self.bottom_bar.addWidget(self.progress_bar, 1)
         self.bottom_bar.addWidget(self.progress_bar_placeholder, 1)
+        self.bottom_bar.addWidget(self.crosshair_button)
         self.bottom_bar.addWidget(self.volume_button)
 
         self.floating_progress = OverlayShortLabelFloating(parent=self)
@@ -244,6 +272,62 @@ class OverlayBlock(QWidget):
     @pyqtSlot()
     def mute_unmute(self):
         self.mute_unmute_clicked.emit()
+
+    @pyqtSlot()
+    def crosshair(self):
+        self.crosshair_clicked.emit()
+
+    def paintEvent(self, event):
+        self._draw_crosshair()
+
+    def _draw_crosshair(self):
+        if not self._crosshair_enabled:
+            return
+        painter = QPainter(self)
+        pen = QPen(self._crosshair_color)
+        pen.setWidth(self._crosshair_thickness)
+        painter.setPen(pen)
+        w = self.width()
+        h = self.height()
+        if self._crosshair_pos is None:
+            cx, cy = w // 2, h // 2
+        else:
+            cx = max(0, min(w, self._crosshair_pos[0]))
+            cy = max(0, min(h, self._crosshair_pos[1]))
+        if self._crosshair_full:
+            painter.drawLine(0, cy, w, cy)
+            painter.drawLine(cx, 0, cx, h)
+        else:
+            gap = min(w, h) // 10
+            painter.drawLine(cx - gap, cy, cx + gap, cy)
+            painter.drawLine(cx, cy - gap, cx, cy + gap)
+        painter.end()
+
+    def set_crosshair_draw_enabled(self, enabled: bool) -> None:
+        self._crosshair_enabled = bool(enabled)
+        self.update()
+
+    def set_crosshair_draw_position(self, x: int, y: int) -> None:
+        self._crosshair_pos = (int(x), int(y))
+        self._crosshair_enabled = True
+        self.update()
+
+    def set_crosshair_draw_full(self, full: bool) -> None:
+        self._crosshair_full = bool(full)
+        self.update()
+
+    def set_crosshair_draw_color(self, qcolor) -> None:
+        self._crosshair_color = qcolor
+        self.update()
+
+    def set_crosshair_draw_thickness(self, thickness: int) -> None:
+        self._crosshair_thickness = int(thickness)
+        self.update()
+
+    @pyqtSlot(bool)
+    def set_crosshair(self, enabled: bool):
+        # OverlayButton.is_off True means visually off, so invert enabled
+        self.crosshair_button.is_off = not enabled
 
     @pyqtSlot(float)
     def emit_position(self, position):
@@ -352,6 +436,8 @@ class OverlayBlockFloating(OverlayBlock):
                 mask -= QRegion(QRect(0, 0, 1, 1))
 
             self.setMask(mask)
+
+        self._draw_crosshair()
 
     def move_to_parent(self):
         new_pos = self.parent().mapToGlobal(QPoint())

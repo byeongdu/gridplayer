@@ -26,13 +26,15 @@ def init_vlc():
     else:
         log.info("No embedded vlc path, will try to find system VLC...")
 
-    vlc_version, vlc_python_version = _get_vlc_version()
+    vlc_result = _get_vlc_version()
+
+    if vlc_result is None:
+        raise FileNotFoundError
+
+    vlc_version, vlc_python_version = vlc_result
 
     log.debug(f"python-vlc {vlc_python_version}")
     log.debug(f"VLC {vlc_version}")
-
-    if vlc_version is None:
-        raise FileNotFoundError
 
     return vlc_version, vlc_python_version
 

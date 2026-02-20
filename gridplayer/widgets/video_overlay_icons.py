@@ -82,3 +82,19 @@ def draw_spin_circle(
 
     painter.setPen(QPen(color_bg, 2))
     painter.drawArc(rect_spin, -spin * 16, 16 * 90)
+
+
+def draw_crosshair(rect: QRect, painter: QPainter, color_fg: QColor, color_bg: QColor):
+    painter.setRenderHint(QPainter.Antialiasing, True)
+    pen = QPen(color_fg, 3)
+    painter.setPen(pen)
+
+    cx = rect.x() + rect.width() // 2
+    cy = rect.y() + rect.height() // 2
+
+    # short center lines (not full width to keep icon tidy)
+    gap = 2
+    length = min(rect.width(), rect.height()) // 2 - 6
+
+    painter.drawLine(cx - length, cy, cx + length, cy)
+    painter.drawLine(cx, cy - length, cx, cy + length)

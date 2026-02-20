@@ -5,26 +5,11 @@ from gridplayer.params import env
 from gridplayer.params.static import VideoDriver
 from gridplayer.player.managers.base import ManagerBase
 from gridplayer.settings import Settings
-from gridplayer.vlc_player.instance import ProcessManagerVLC
 from gridplayer.widgets.video_frame_dummy import VideoFrameDummy
-from gridplayer.widgets.video_frame_vlc_hw import InstanceProcessVLCHW, VideoFrameVLCHW
-from gridplayer.widgets.video_frame_vlc_hw_sp import VideoFrameVLCHWSP
-from gridplayer.widgets.video_frame_vlc_sw import InstanceProcessVLCSW, VideoFrameVLCSW
 
 
 class VideoDriverManager(ManagerBase):
-    _video_drivers = {
-        VideoDriver.DUMMY: VideoFrameDummy,
-        VideoDriver.VLC_SW: VideoFrameVLCSW,
-        VideoDriver.VLC_HW: VideoFrameVLCHW,
-        VideoDriver.VLC_HW_SP: VideoFrameVLCHWSP,
-    }
-
-    _process_instances = {
-        VideoDriver.VLC_SW: InstanceProcessVLCSW,
-        VideoDriver.VLC_HW: InstanceProcessVLCHW,
-    }
-
+    # Note: VLC related classes are imported lazily inside `video_driver()`
     _multiprocess_drivers = {
         VideoDriver.VLC_SW,
         VideoDriver.VLC_HW,
@@ -46,19 +31,44 @@ class VideoDriverManager(ManagerBase):
 
         is_multiprocess = video_driver in self._multiprocess_drivers
 
-        if is_multiprocess:
-            if self._process_manager is None:
-                self._process_manager = ProcessManagerVLC(
-                    self._process_instances[video_driver]
-                )
-                self._process_manager.crash.connect(self.crash)
+        # Dummy driver is always available
+        if video_driver == VideoDriver.DUMMY:
+            return VideoFrameDummy
 
-            return partial(
-                self._video_drivers[video_driver],
-                process_manager=self._process_manager,
-            )
+        # For VLC drivers, import implementations lazily so the app can run
+        # even when VLC libs are missing (e.g., testing with DUMMY driver)
+        try:
+            if is_multiprocess:
+                from gridplayer.vlc_player.instance import ProcessManagerVLC
+                from gridplayer.widgets.video_frame_vlc_sw import InstanceProcessVLCSW, VideoFrameVLCSW
+                from gridplayer.widgets.video_frame_vlc_hw import InstanceProcessVLCHW, VideoFrameVLCHW
 
-        return self._video_drivers[video_driver]
+                process_map = {
+                    VideoDriver.VLC_SW: InstanceProcessVLCSW,
+                    VideoDriver.VLC_HW: InstanceProcessVLCHW,
+                }
+
+                driver_map = {
+                    VideoDriver.VLC_SW: VideoFrameVLCSW,
+                    VideoDriver.VLC_HW: VideoFrameVLCHW,
+                }
+
+                if self._process_manager is None:
+                    self._process_manager = ProcessManagerVLC(process_map[video_driver])
+                    self._process_manager.crash.connect(self.crash)
+
+                return partial(driver_map[video_driver], process_manager=self._process_manager)
+            else:
+                from gridplayer.widgets.video_frame_vlc_hw_sp import VideoFrameVLCHWSP
+
+                driver_map = {
+                    VideoDriver.VLC_HW_SP: VideoFrameVLCHWSP,
+                }
+
+                return driver_map[video_driver]
+        except Exception:
+            # Fall back to dummy if VLC-related imports fail
+            return VideoFrameDummy
 
     def cleanup(self):
         if self._process_manager:

@@ -167,6 +167,9 @@ class VideoBlock(QWidget):
         # Runtime Params
         self._is_error = False
         self._is_active = False
+        self._crosshair_enabled = bool(
+            Settings().get("video_defaults/crosshair_enabled")
+        )
 
         self._title = None
         self._color = None
@@ -271,6 +274,7 @@ class VideoBlock(QWidget):
             (overlay.exit_clicked, self.close),
             (overlay.play_pause_clicked, self.play_pause),
             (overlay.mute_unmute_clicked, self.mute_unmute),
+            (overlay.crosshair_clicked, self.toggle_crosshair),
             (self.time_change, overlay.set_position),
             (self.volume_change, overlay.set_volume_position),
             (self.label_change, overlay.set_label),
@@ -286,6 +290,45 @@ class VideoBlock(QWidget):
         )
 
         return overlay
+
+    def toggle_crosshair(self):
+        # Toggle internal state
+        self._crosshair_enabled = not self._crosshair_enabled
+
+        # Update overlay button state
+        try:
+            self.overlay.set_crosshair(self._crosshair_enabled)
+        except Exception:
+            pass
+
+        # Enable/disable crosshair drawing in overlay
+        try:
+            self.overlay.set_crosshair_draw_enabled(self._crosshair_enabled)
+        except Exception:
+            pass
+
+        # Keep overlay visible when crosshair is on, else let normal hide logic run
+        if self._crosshair_enabled:
+            self.overlay.show()
+        else:
+            self.hide_overlay()
+
+        # Persist global default and notify settings manager to apply to other blocks
+        try:
+            from gridplayer.settings import Settings
+
+            Settings().set("video_defaults/crosshair_enabled", self._crosshair_enabled)
+            Settings().sync()
+
+            # notify settings manager if available
+            try:
+                mgr = self.parent()._managers_inst.get("settings")
+                if mgr is not None:
+                    mgr.set_crosshair_settings.emit()
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def ui_setup(self):
         self.setMouseTracking(True)
@@ -415,6 +458,36 @@ class VideoBlock(QWidget):
     def mouseReleaseEvent(self, event) -> None:
         if self._ctx.is_disable_click_pause:
             event.ignore()
+            return
+
+        # ALT + Left click: set crosshair position for this video
+        if event.button() == Qt.LeftButton and (event.modifiers() & Qt.AltModifier):
+            pos = event.pos()
+            self._crosshair_enabled = True
+            # Update overlay button state
+            try:
+                self.overlay.set_crosshair(True)
+            except Exception:
+                pass
+            # Draw crosshair in the overlay (which sits above VLC's native HW surface)
+            try:
+                self.overlay.set_crosshair_draw_position(pos.x(), pos.y())
+            except Exception:
+                pass
+            self.overlay.show()
+            # Persist to settings so the settings panel checkbox reflects the state
+            try:
+                Settings().set("video_defaults/crosshair_enabled", True)
+                Settings().sync()
+                try:
+                    mgr = self.parent()._managers_inst.get("settings")
+                    if mgr is not None:
+                        mgr.set_crosshair_settings.emit()
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            event.accept()
             return
 
         if event.button() == Qt.LeftButton:
@@ -642,6 +715,10 @@ class VideoBlock(QWidget):
 
     def hide_overlay(self):
         if not Settings().get("misc/overlay_hide"):
+            return
+
+        # Keep overlay visible when crosshair is active (it draws the crosshair)
+        if self._crosshair_enabled:
             return
 
         self.overlay.hide()

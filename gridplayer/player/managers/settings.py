@@ -13,6 +13,7 @@ class SettingsManager(ManagerBase):
     set_log_level = pyqtSignal(int)
     set_log_level_vlc = pyqtSignal(int)
     set_recent_list_enabled = pyqtSignal(bool)
+    set_crosshair_settings = pyqtSignal()
 
     @property
     def commands(self):
@@ -50,6 +51,15 @@ class SettingsManager(ManagerBase):
 
         for c in changes:
             checks[c].emit(Settings().get(c))
+
+        crosshair_keys = {
+            "video_defaults/crosshair_enabled",
+            "video_defaults/crosshair_color",
+            "video_defaults/crosshair_thickness",
+            "video_defaults/crosshair_full",
+        }
+        if self._setting_changes(previous_settings, crosshair_keys):
+            self.set_crosshair_settings.emit()
 
     def _is_reload_needed(self, previous_settings):
         checks = {

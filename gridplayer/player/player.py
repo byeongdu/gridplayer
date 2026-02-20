@@ -96,6 +96,7 @@ class Player(QWidget, ManagersManager):
                 ("set_log_level", "video_driver.set_log_level"),
                 ("set_log_level_vlc", "video_driver.set_log_level_vlc"),
                 ("set_recent_list_enabled", "recent_list.set_recent_list_state"),
+                ("set_crosshair_settings", "video_blocks.apply_crosshair_settings"),
             ],
             "playlist": [
                 ("s.arguments_received", "process_arguments"),

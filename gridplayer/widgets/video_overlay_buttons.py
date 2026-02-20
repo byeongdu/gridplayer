@@ -13,6 +13,7 @@ from gridplayer.widgets.video_overlay_icons import (
     draw_spin_circle,
     draw_volume_off,
     draw_volume_on,
+    draw_crosshair,
 )
 
 
@@ -169,3 +170,12 @@ class OverlayVolumeButton(OverlayButton):
 
     def icon_off(self, rect, painter, color_fg, color_bg):
         return draw_volume_off(rect, painter, color_fg, color_bg)
+
+
+class OverlayCrosshairButton(OverlayButton):
+    def icon(self, rect, painter, color_fg, color_bg):
+        return draw_crosshair(rect, painter, color_fg, color_bg)
+
+    def icon_off(self, rect, painter, color_fg, color_bg):
+        # show same icon but with muted foreground for off state
+        return draw_crosshair(rect, painter, color_bg, color_fg)

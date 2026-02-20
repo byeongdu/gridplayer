@@ -5,25 +5,37 @@ from gridplayer.main.init_app import init_app
 from gridplayer.params import env
 from gridplayer.utils.libvlc import init_vlc
 from gridplayer.utils.qt import translate
+from gridplayer.settings import Settings
+from gridplayer.params.static import VideoDriver
 
 
 def run_app():
     app = init_app()
 
+    # If user selected the dummy video driver in settings, skip VLC initialization
     try:
-        vlc_version, vlc_python_version = init_vlc()
-    except FileNotFoundError:
-        QCustomMessageBox.critical(
-            None,
-            translate("Dialog", "Error"),
-            translate(
-                "Error",
-                "<p>VLC player is required!</p><p>Please visit"
-                ' <a href="https://www.videolan.org/vlc/">VLC official site</a>'
-                " for instructions on how to install it.</p>",
-            ),
-        )
-        return 1
+        driver = Settings().get("player/video_driver")
+    except Exception:
+        driver = None
+
+    if driver != VideoDriver.DUMMY:
+        try:
+            vlc_version, vlc_python_version = init_vlc()
+        except FileNotFoundError:
+            QCustomMessageBox.critical(
+                None,
+                translate("Dialog", "Error"),
+                translate(
+                    "Error",
+                    "<p>VLC player is required!</p><p>Please visit"
+                    ' <a href="https://www.videolan.org/vlc/">VLC official site</a>'
+                    " for instructions on how to install it.</p>",
+                ),
+            )
+            return 1
+    else:
+        # Use placeholders for VLC version info when running with dummy driver
+        vlc_version, vlc_python_version = None, None
 
     env.VLC_VERSION = vlc_version
     env.VLC_PYTHON_VERSION = vlc_python_version

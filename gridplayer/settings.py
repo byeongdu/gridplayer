@@ -63,6 +63,11 @@ _default_settings = {
     "video_defaults/paused": False,
     "video_defaults/stream_quality": "best",
     "video_defaults/auto_reload_timer": 0,
+    # Crosshair defaults
+    "video_defaults/crosshair_enabled": False,
+    "video_defaults/crosshair_color": "#FF0000",
+    "video_defaults/crosshair_thickness": 1,
+    "video_defaults/crosshair_full": False,
     "misc/overlay_hide": True,
     "misc/overlay_timeout": 3,
     "misc/mouse_hide": True,

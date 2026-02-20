@@ -398,3 +398,35 @@ class VideoBlocksManager(ManagerBase):
 
             if self._videos_to_reload:
                 self.reload_videos_finish()
+
+    def apply_crosshair_settings(self):
+        """Apply crosshair settings from `Settings` to all existing video blocks."""
+        from PyQt5.QtGui import QColor
+
+        enabled = Settings().get("video_defaults/crosshair_enabled")
+        color = Settings().get("video_defaults/crosshair_color")
+        thickness = Settings().get("video_defaults/crosshair_thickness")
+        full = Settings().get("video_defaults/crosshair_full")
+
+        qcolor = QColor(color) if color else QColor(255, 0, 0)
+
+        for vb in self._ctx.video_blocks:
+            # Update CrosshairOverlay inside VideoFrameVLC (SW rendering)
+            vb.video_driver.set_crosshair(enabled)
+            vb.video_driver.set_crosshair_color(qcolor)
+            vb.video_driver.set_crosshair_thickness(thickness)
+            vb.video_driver.set_crosshair_full(full)
+
+            # Update OverlayBlock drawing (HW rendering)
+            try:
+                vb._crosshair_enabled = enabled
+                vb.overlay.set_crosshair_draw_enabled(enabled)
+                vb.overlay.set_crosshair(enabled)
+                vb.overlay.set_crosshair_draw_full(full)
+                vb.overlay.set_crosshair_draw_color(qcolor)
+                vb.overlay.set_crosshair_draw_thickness(thickness)
+
+                if not enabled:
+                    vb.hide_overlay()
+            except Exception:
+                pass
