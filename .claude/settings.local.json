@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(poetry --version:*)",
+      "Bash(pip show:*)",
+      "Bash(pip3:*)",
+      "Bash(uv --version:*)",
+      "Bash(cmd.exe /c \"where python\")",
+      "Bash(cmd.exe /c \"where uv\")",
+      "Bash(cmd.exe /c \"where py\")",
+      "Bash(/c/Users/usaxs/AppData/Local/miniconda3/python.exe:*)",
+      "Bash(/c/Users/usaxs/AppData/Local/miniconda3/Scripts/pip.exe:*)",
+      "Bash(/c/Users/usaxs/AppData/Local/miniconda3/Scripts/conda.exe info:*)",
+      "Bash(echo:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}
