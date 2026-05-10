@@ -337,6 +337,7 @@ class VideoBlocksManager(ManagerBase):
 
         vb = VideoBlock(
             video_driver=self._ctx.video_driver,
+            initial_video=video,
             context=self._ctx,
             parent=self.parent(),
         )

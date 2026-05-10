@@ -54,6 +54,7 @@ _default_settings = {
     "playlist/shuffle_on_load": False,
     "playlist/disable_click_pause": False,
     "playlist/disable_wheel_seek": False,
+    "playlist/default_path": "",
     "video_defaults/aspect": VideoAspect.FIT,
     "video_defaults/transform": VideoTransform.NONE,
     "video_defaults/repeat": VideoRepeat.SINGLE_FILE,

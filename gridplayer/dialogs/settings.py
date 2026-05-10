@@ -4,7 +4,18 @@ import subprocess
 
 from PyQt5.QtCore import QUrl
 from PyQt5.QtGui import QDesktopServices, QIcon, QPalette
-from PyQt5.QtWidgets import QCheckBox, QComboBox, QDialog, QLineEdit, QSpinBox
+from PyQt5.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QSpinBox,
+    QWidget,
+)
 
 from gridplayer.dialogs.messagebox import QCustomMessageBox
 from gridplayer.dialogs.settings_dialog_ui import Ui_SettingsDialog
@@ -89,6 +100,7 @@ class SettingsDialog(QDialog, Ui_SettingsDialog):
             "playlist/track_changes": self.playlistTrackChanges,
             "playlist/disable_click_pause": self.playlistDisableClickPause,
             "playlist/disable_wheel_seek": self.playlistDisableWheelSeek,
+            "playlist/default_path": self.playlistDefaultPath,
             "video_defaults/aspect": self.videoAspect,
             "video_defaults/transform": self.videoTransform,
             "video_defaults/repeat": self.repeatMode,
@@ -136,6 +148,8 @@ class SettingsDialog(QDialog, Ui_SettingsDialog):
         self.ui_customize_section_index()
 
         _set_groupbox_header_bold(self.playerVideoDriverBox)
+
+        self._build_default_playlist_row()
 
         if env.IS_LINUX:
             self.playerStayOnTop.hide()
@@ -197,6 +211,44 @@ class SettingsDialog(QDialog, Ui_SettingsDialog):
         self.playerRecentListSize.setEnabled(self.playerRecentList.isChecked())
 
         self.switch_page(None)
+
+    def _build_default_playlist_row(self):
+        row = QWidget(self.page_defaults_playlist)
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+
+        label = QLabel(translate("SettingsDialog", "Default playlist"), row)
+        self.playlistDefaultPath = QLineEdit(row)
+        self.playlistDefaultPath.setPlaceholderText(
+            translate("SettingsDialog", "Path to a .gpls file loaded on startup")
+        )
+        browse_btn = QPushButton(translate("SettingsDialog", "Browse..."), row)
+        clear_btn = QPushButton(translate("SettingsDialog", "Clear"), row)
+
+        row_layout.addWidget(label)
+        row_layout.addWidget(self.playlistDefaultPath, 1)
+        row_layout.addWidget(browse_btn)
+        row_layout.addWidget(clear_btn)
+
+        self.lay_page_defaults_playlist.addWidget(row)
+
+        browse_btn.clicked.connect(self._browse_default_playlist)
+        clear_btn.clicked.connect(self.playlistDefaultPath.clear)
+
+    def _browse_default_playlist(self):
+        current = self.playlistDefaultPath.text()
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            translate("Dialog - Open Playlist", "Open Playlist", "Header"),
+            current,
+            "{} (*.gpls)".format(
+                translate(
+                    "Dialog - Open Playlist", "GridPlayer Playlists", "File format"
+                )
+            ),
+        )
+        if file_path:
+            self.playlistDefaultPath.setText(file_path)
 
     def ui_connect(self):
         qt_connect(

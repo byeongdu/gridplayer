@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir c:\\\\Users\\\\blee\\\\Documents\\\\GitHub\\\\gridplayer /B)",
+      "Bash(xargs grep -l \"recent.*playlist\\\\|default.*playlist\\\\|auto.*load\")",
+      "Bash(Get-Content -Path \"c:\\\\Users\\\\blee\\\\Documents\\\\GitHub\\\\gridplayer\\\\gridplayer\\\\player\\\\managers\\\\video_driver.py\" -TotalCount 91)",
+      "Bash(Measure-Object -Line)",
+      "Bash(Select-Object -ExpandProperty Lines)",
+      "Bash(python -c \"import gridplayer.widgets.video_frame_pva; import gridplayer.pva_player.pva_subscriber; import gridplayer.player.managers.video_driver; import gridplayer.player.managers.playlist; import gridplayer.dialogs.settings; import gridplayer.widgets.video_block; print\\('OK'\\)\")",
+      "Bash(uv --version)",
+      "Bash(where uv *)",
+      "Bash(where python *)",
+      "Bash(uv sync *)",
+      "Bash(uv run *)",
+      "Bash(git stash *)",
+      "Bash(uv pip *)"
+    ]
+  }
+}

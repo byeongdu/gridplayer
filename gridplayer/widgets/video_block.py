@@ -151,7 +151,7 @@ class VideoBlock(QWidget):
     is_active_change = pyqtSignal(bool)
     is_audio_present_change = pyqtSignal(bool)
 
-    def __init__(self, video_driver, context, **kwargs):
+    def __init__(self, video_driver, context, initial_video=None, **kwargs):
         super().__init__(**kwargs)
 
         self._log = logging.getLogger(self.__class__.__name__)
@@ -162,7 +162,12 @@ class VideoBlock(QWidget):
         self._ctx = context
 
         # Static Params
-        self.video_params: Video | None = None
+        # video_params is set early (before driver init) so the URI-aware driver
+        # factory can pick the right widget class up front. set_video() uses
+        # _is_initial_load to detect the first real load, since video_params
+        # may already be non-None here.
+        self.video_params: Video | None = initial_video
+        self._is_initial_load = True
 
         # Runtime Params
         self._is_error = False
@@ -206,7 +211,14 @@ class VideoBlock(QWidget):
         vlc_options = get_vlc_options(self.video_params)
         self._log.debug(f"vlc_options: {vlc_options}")
 
-        video_driver = self.video_driver_cls(vlc_options=vlc_options, parent=self)
+        uri = str(self.video_params.uri) if self.video_params else None
+        driver_cls = (
+            self.video_driver_cls(uri=uri)
+            if callable(self.video_driver_cls)
+            else self.video_driver_cls
+        )
+
+        video_driver = driver_cls(vlc_options=vlc_options, parent=self)
 
         qt_connect(
             (video_driver.video_ready, self.load_video_finish),
@@ -787,7 +799,8 @@ class VideoBlock(QWidget):
         self.video_params = snapshot.model_copy()
 
     def set_video(self, video_params: Video):
-        is_first_video = self.video_params is None
+        is_first_video = self._is_initial_load
+        self._is_initial_load = False
         is_options_changed = get_vlc_options(self.video_params) != get_vlc_options(
             video_params
         )
