@@ -3,7 +3,17 @@ from typing import Annotated
 
 from pydantic import AfterValidator, FilePath
 
-URL_ALLOWED_SCHEMES = {"http", "https", "rtp", "rtsp", "rtmp", "udp", "mms", "mmsh"}
+URL_ALLOWED_SCHEMES = {
+    "http",
+    "https",
+    "rtp",
+    "rtsp",
+    "rtmp",
+    "udp",
+    "mms",
+    "mmsh",
+    "pva",
+}
 URL_MAX_LENGTH = 2083
 
 

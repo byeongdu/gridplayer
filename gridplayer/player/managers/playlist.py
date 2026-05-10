@@ -112,6 +112,11 @@ class PlaylistManager(ManagerBase):
 
     def process_arguments(self, argv):
         if not argv:
+            default_path = Settings().get("playlist/default_path")
+            if default_path:
+                default_path = Path(default_path)
+                if default_path.is_file():
+                    self.load_playlist_file(default_path)
             return
 
         playlist = get_playlist_path(argv)

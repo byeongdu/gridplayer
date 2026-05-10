@@ -22,7 +22,18 @@ class VideoDriverManager(ManagerBase):
 
         self._process_manager = None
 
-    def video_driver(self):
+    def video_driver(self, uri: str | None = None):
+        if uri and uri.startswith("pva://"):
+            try:
+                from gridplayer.widgets.video_frame_pva import VideoFramePVA
+            except ImportError:
+                self._log.error(
+                    "EPICS PVA support requires the 'pvapy' package."
+                    " Install with: pip install pvapy"
+                )
+                return VideoFrameDummy
+            return VideoFramePVA
+
         video_driver = Settings().get("player/video_driver")
 
         if video_driver == VideoDriver.VLC_HW and env.IS_MACOS:
