@@ -211,14 +211,9 @@ class VideoBlock(QWidget):
         vlc_options = get_vlc_options(self.video_params)
         self._log.debug(f"vlc_options: {vlc_options}")
 
-        uri = str(self.video_params.uri) if self.video_params else None
-        driver_cls = (
-            self.video_driver_cls(uri=uri)
-            if callable(self.video_driver_cls)
-            else self.video_driver_cls
+        video_driver = self.video_driver_cls(
+            vlc_options=vlc_options, parent=self
         )
-
-        video_driver = driver_cls(vlc_options=vlc_options, parent=self)
 
         qt_connect(
             (video_driver.video_ready, self.load_video_finish),
