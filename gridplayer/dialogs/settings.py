@@ -76,6 +76,7 @@ class SettingsDialog(QDialog, Ui_SettingsDialog):
 
         self.setupUi(self)
 
+        self.ui_customize()
         self.settings_map = {
             "player/video_driver": self.playerVideoDriver,
             "player/video_driver_players": self.playerVideoDriverPlayers,
@@ -131,7 +132,6 @@ class SettingsDialog(QDialog, Ui_SettingsDialog):
             "streaming/resolver_priority_patterns": self.streamingResolverPriorityPatterns,
         }
 
-        self.ui_customize()
         self.ui_fill()
 
         self.ui_connect()
