@@ -1,0 +1,10 @@
+#GRIDPLAYER
+#P:{"grid_state":{"mode":"auto_rows","is_fit":true,"size":0},"snapshots":{},"seek_sync_mode":"disabled","shuffle_on_load":false,"disable_click_pause":false,"disable_wheel_seek":false}
+#V0:{"id":"448ae2ba-44e4-4448-9235-f7d43c89401b","color":"white","repeat_mode":"single_file","is_start_random":false,"rate":1.0,"aspect_mode":"fit","is_muted":true,"scale":1.0,"crop":[0,0,0,0],"volume":1.0,"transform":"none","stream_quality":"best","auto_reload_timer_min":0,"video_track_id":0,"audio_channel_mode":"unset"}
+#V1:{"id":"1088e3d7-023e-4d78-a9b2-19be52fd209a","color":"white","repeat_mode":"single_file","is_start_random":false,"rate":1.0,"aspect_mode":"fit","is_muted":true,"scale":1.0,"crop":[0,0,0,0],"volume":1.0,"transform":"none","stream_quality":"best","auto_reload_timer_min":0,"video_track_id":0,"audio_channel_mode":"unset"}
+#V2:{"id":"85795990-9fb5-450f-a444-273c7f02d1d7","color":"white","repeat_mode":"single_file","is_start_random":false,"rate":1.0,"aspect_mode":"fit","is_muted":true,"scale":1.0,"crop":[0,0,0,0],"volume":1.0,"transform":"none","stream_quality":"best","auto_reload_timer_min":0,"video_track_id":0,"audio_channel_mode":"unset"}
+#V3:{"id":"054eae53-81a8-4163-8cda-4992ec75bcc6","color":"white","repeat_mode":"single_file","is_start_random":false,"rate":1.0,"aspect_mode":"fit","is_muted":true,"scale":1.0,"crop":[0,0,0,0],"volume":1.0,"transform":"none","stream_quality":"best","auto_reload_timer_min":0,"video_track_id":0,"audio_channel_mode":"unset"}
+rtsp://10.54.122.47/axis-media/media.amp?camera=1
+rtsp://10.54.122.47/axis-media/media.amp?camera=3
+rtsp://10.54.122.46/axis-media/media.amp?camera=1
+rtsp://10.54.122.46/axis-media/media.amp?camera=2
