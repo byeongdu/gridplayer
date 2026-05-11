@@ -105,15 +105,36 @@ class PVASubscriber(QObject):
 
             try:
                 self._channel = pva.Channel(self._channel_name, pva.PVA)
-                self._channel.subscribe("gridplayer", self._on_frame)
-                self._channel.startMonitor()
+                print(f"DEBUG: Created PVA channel for {self._channel_name}")
             except Exception as e:
-                self._log.exception("Failed to start PVA monitor")
+                print(f"DEBUG: Failed to create PVA channel: {e}")
+                self._log.exception("Failed to create PVA channel")
+                self.error.emit(f"Failed to create channel for {self._channel_name}: {e}")
+                self._channel = None
+                return
+
+            try:
+                self._channel.subscribe("gridplayer", self._on_frame)
+                print(f"DEBUG: Subscribed to PVA channel {self._channel_name}")
+            except Exception as e:
+                print(f"DEBUG: Failed to subscribe to PVA channel: {e}")
+                self._log.exception("Failed to subscribe to PVA channel")
                 self.error.emit(f"Failed to subscribe to {self._channel_name}: {e}")
                 self._channel = None
                 return
 
+            try:
+                self._channel.startMonitor()
+                print(f"DEBUG: Started monitor on PVA channel {self._channel_name}")
+            except Exception as e:
+                print(f"DEBUG: Failed to start monitor on PVA channel: {e}")
+                self._log.exception("Failed to start PVA monitor")
+                self.error.emit(f"Failed to start monitor on {self._channel_name}: {e}")
+                self._channel = None
+                return
+
             self._is_running = True
+            print(f"DEBUG: PVA subscriber started for {self._channel_name}")
             self.connected.emit()
 
     def stop(self):
@@ -130,6 +151,9 @@ class PVASubscriber(QObject):
                 self._is_running = False
 
     def _on_frame(self, pv):
+        if not hasattr(self, '_frame_count'):
+            self._frame_count = 0
+        self._frame_count += 1
         try:
             arr = _extract_ntndarray(pv)
         except Exception:

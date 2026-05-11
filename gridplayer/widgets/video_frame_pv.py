@@ -6,14 +6,32 @@ from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QImage, QPainter
 from PyQt5.QtWidgets import QWidget
 
-from gridplayer.pva_player.pva_subscriber import PVASubscriber
 from gridplayer.vlc_player.static import (
     DISABLED_TRACK,
-    AudioTrack,
     Media,
     MediaInput,
     VideoTrack,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _parse_pv_uri(uri: str) -> tuple[str, str, str]:
+    """Parse pv://hostname:image_name:field_name into its components."""
+    # Strip 'pv://' prefix
+    rest = uri[len("pv://") :]
+    parts = rest.split(":")
+    if len(parts) != 3:
+        raise ValueError(
+            f"PV URI must be in format pv://hostname:image:field, got: {uri}"
+        )
+    host, image, field = parts
+    return host, image, field
+
+
+def _build_pv_name(host: str, image: str, field: str) -> str:
+    """Build the EPICS PV name: host:image:field."""
+    return f"{host}:{image}:{field}"
 
 
 def _numpy_to_qimage(arr: np.ndarray) -> QImage | None:
@@ -54,11 +72,15 @@ def _numpy_to_qimage(arr: np.ndarray) -> QImage | None:
     return None
 
 
-class VideoFramePVA(QWidget):
-    """Native EPICS PV Access video driver-widget.
+class VideoFramePV(QWidget):
+    """EPICS PV video driver-widget using epics.caget().
 
-    Connects to a PVA NTNDArray channel via pvapy, decodes frames to QImage,
-    and renders them via paintEvent. Bypasses VLC entirely.
+    Connects to an EPICS PV via pyepics (epics.caget), polls for image data
+    on a timer, decodes frames to QImage, and renders via paintEvent.
+    Bypasses VLC entirely.
+
+    URI format: pv://hostname:image_name:field_name
+    Example:   pv://12idBFS2:image1:ArrayData
     """
 
     # VideoBlock-facing signals (mirror VLCVideoDriver)
@@ -70,6 +92,9 @@ class VideoFramePVA(QWidget):
     update_status = pyqtSignal(str, int)
 
     is_opengl = False
+
+    # Default poll interval in milliseconds
+    DEFAULT_POLL_INTERVAL_MS = 100
 
     def __init__(self, vlc_options=None, parent=None):
         super().__init__(parent)
@@ -85,44 +110,67 @@ class VideoFramePVA(QWidget):
         self._is_initialized = False
         self._media: Media | None = None
         self._media_input: MediaInput | None = None
-        self._subscriber: PVASubscriber | None = None
-        self._channel_name: str | None = None
-        self._start_wallclock_ms: int | None = None
+        self._host: str = ""
+        self._image: str = ""
+        self._field: str = ""
+        self._pv_name: str = ""
 
-        # The PVA monitor delivers frames asynchronously; we throttle the
-        # time_changed signal to ~10 Hz so we don't flood the overlay.
-        self._time_timer = QTimer(self)
-        self._time_timer.setInterval(100)
-        self._time_timer.timeout.connect(self._tick_time)
+        self._poll_timer = QTimer(self)
+        self._poll_timer.setInterval(self.DEFAULT_POLL_INTERVAL_MS)
+        self._poll_timer.timeout.connect(self._poll_frame)
+
+        self._start_wallclock_ms: int | None = None
 
     # --- VideoBlock contract: load slot ----------------------------------
 
     def load_video(self, media_input: MediaInput):
         self._media_input = media_input
         uri = media_input.uri
-        if not uri.startswith("pva://"):
-            self.error.emit(f"Not a PVA URI: {uri}")
+        if not uri.startswith("pv://"):
+            self.error.emit(f"Not a PV URI: {uri}")
             return
 
-        self._channel_name = uri[len("pva://") :]
-        self._subscriber = PVASubscriber(self._channel_name, parent=self)
-        self._subscriber.frame_received.connect(self._on_frame)
-        self._subscriber.error.connect(self._on_error)
-        self._subscriber.connected.connect(self._on_connected)
+        try:
+            self._host, self._image, self._field = _parse_pv_uri(uri)
+        except ValueError as e:
+            self.error.emit(str(e))
+            return
 
-        self.update_status.emit(f"Subscribing to {self._channel_name}", 0)
-        self._subscriber.start()
+        self._pv_name = _build_pv_name(self._host, self._image, self._field)
 
-    # --- subscriber handlers ---------------------------------------------
+        # Check that epics is available
+        try:
+            import epics
+        except ImportError:
+            self.error.emit(
+                "EPICS PV support requires the 'pyepics' package. "
+                "Install with: pip install pyepics"
+            )
+            return
 
-    def _on_connected(self):
+        self.update_status.emit(f"Connecting to {self._pv_name}", 0)
+
+        # Try an initial fetch to verify the PV exists and is accessible
+        try:
+            arr = epics.caget(self._pv_name)
+            if arr is None:
+                self.error.emit(f"PV {self._pv_name} returned no data")
+                return
+            self._log.debug(
+                f"Initial fetch from {self._pv_name}: "
+                f"type={type(arr)}, shape={getattr(arr, 'shape', 'N/A')}"
+            )
+        except Exception as e:
+            self.error.emit(f"Failed to connect to PV {self._pv_name}: {e}")
+            return
+
         # Synthesize a Media object so VideoBlock's load_video_finish has the
         # shape it expects.
         video_track = VideoTrack(
-            codec="EPICS NTNDArray",
+            codec="EPICS PV caget",
             bitrate=0,
             language=None,
-            description=self._channel_name,
+            description=self._pv_name,
             video_dimensions=(0, 0),
             fps=None,
         )
@@ -136,22 +184,42 @@ class VideoFramePVA(QWidget):
         self._is_initialized = True
         self._is_paused = False
         self._start_wallclock_ms = int(time.monotonic() * 1000)
-        self._time_timer.start()
+        self._poll_timer.start()
         self.video_ready.emit()
         self.playback_status_changed.emit(False)
 
-    def _on_error(self, msg: str):
-        print(f"PVA Error received: {msg}")  # for debugging
-        self.error.emit(msg)
+    # --- Polling ----------------------------------------------------------
 
-    def _on_frame(self, arr):
+    def _poll_frame(self):
         if self._is_paused:
             return
+
+        try:
+            import epics
+
+            arr = epics.caget(self._pv_name)
+        except Exception:
+            self._log.exception(f"Failed to caget {self._pv_name}")
+            return
+
+        if arr is None:
+            return
+
+        # epics.caget may return a numpy array or a scalar; ensure ndarray
+        if not isinstance(arr, np.ndarray):
+            arr = np.asarray(arr)
+
         img = _numpy_to_qimage(arr)
         if img is None:
-            self._log.warning(f"_numpy_to_qimage returned None for array of shape {getattr(arr, 'shape', 'unknown')} and dtype {getattr(arr, 'dtype', 'unknown')}")
+            self._log.warning(
+                f"_numpy_to_qimage returned None for array of shape "
+                f"{getattr(arr, 'shape', 'unknown')} and dtype "
+                f"{getattr(arr, 'dtype', 'unknown')}"
+            )
             return
+
         self._frame = img
+
         # Update the synthesized track's dimensions on the first frame so the
         # info overlay shows something useful.
         if self._media and self._media.video_tracks:
@@ -159,12 +227,6 @@ class VideoFramePVA(QWidget):
             if track.video_dimensions == (0, 0):
                 track.video_dimensions = (img.width(), img.height())
         self.update()
-
-    def _tick_time(self):
-        if self._is_paused or self._start_wallclock_ms is None:
-            return
-        elapsed = int(time.monotonic() * 1000) - self._start_wallclock_ms
-        self.time_changed.emit(elapsed)
 
     # --- paint -----------------------------------------------------------
 
@@ -217,31 +279,26 @@ class VideoFramePVA(QWidget):
     def media(self):
         return self._media
 
-    # --- VideoBlock-facing methods (mostly no-ops for live PVA) ----------
+    # --- VideoBlock-facing methods (mostly no-ops for live PV) ----------
 
     def cleanup(self):
-        self._time_timer.stop()
-        if self._subscriber is not None:
-            try:
-                self._subscriber.frame_received.disconnect()
-                self._subscriber.error.disconnect()
-                self._subscriber.connected.disconnect()
-            except Exception:
-                pass
-            self._subscriber.stop()
-            self._subscriber.deleteLater()
-            self._subscriber = None
+        self._poll_timer.stop()
 
     def play(self):
         if not self._is_paused:
             return
         self._is_paused = False
+        self._poll_timer.start()
         self.playback_status_changed.emit(False)
 
     def set_pause(self, is_paused: bool):
         if self._is_paused == is_paused:
             return
         self._is_paused = is_paused
+        if is_paused:
+            self._poll_timer.stop()
+        else:
+            self._poll_timer.start()
         self.playback_status_changed.emit(is_paused)
 
     def set_time(self, seek_ms: int):
@@ -267,6 +324,21 @@ class VideoFramePVA(QWidget):
     def set_audio_channel_mode(self, mode):
         pass
 
+    def set_crosshair(self, enabled: bool):
+        pass
+
+    def set_crosshair_position(self, x, y):
+        pass
+
+    def set_crosshair_color(self, qcolor):
+        pass
+
+    def set_crosshair_thickness(self, thickness):
+        pass
+
+    def set_crosshair_full(self, full: bool):
+        pass
+
     def set_aspect_ratio(self, aspect):
         # Aspect handled in paintEvent via KeepAspectRatio; trigger repaint.
         self.update()
@@ -281,9 +353,8 @@ class VideoFramePVA(QWidget):
         self.update()
 
     def get_ms_per_frame(self) -> int:
-        # Unknown for an EPICS stream; default to ~30 FPS
-        return 33
+        return self.DEFAULT_POLL_INTERVAL_MS
 
     def snapshot(self):
-        # Not implemented for PVA streams; emit no-op signal if listened.
+        # Not implemented for PV streams; emit no-op signal if listened.
         pass

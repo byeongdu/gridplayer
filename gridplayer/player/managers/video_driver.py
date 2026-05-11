@@ -34,6 +34,17 @@ class VideoDriverManager(ManagerBase):
                 return VideoFrameDummy
             return VideoFramePVA
 
+        if uri and uri.startswith("pv://"):
+            try:
+                from gridplayer.widgets.video_frame_pv import VideoFramePV
+            except ImportError:
+                self._log.error(
+                    "EPICS PV support requires the 'pyepics' package."
+                    " Install with: pip install pyepics"
+                )
+                return VideoFrameDummy
+            return VideoFramePV
+
         video_driver = Settings().get("player/video_driver")
 
         if video_driver == VideoDriver.VLC_HW and env.IS_MACOS:

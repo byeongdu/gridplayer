@@ -207,7 +207,24 @@ class VideoBlock(QWidget):
         self.video_status.show()
         self.overlay.hide()
 
-    def init_video_driver(self) -> VideoFrameVLC:
+    def init_video_driver(self):
+        # Check for EPICS PV URIs and route to the appropriate driver
+        if isinstance(self.video_params.uri, str):
+            if self.video_params.uri.startswith("pv://"):
+                from gridplayer.widgets.video_frame_pv import VideoFramePV
+
+                video_driver = VideoFramePV(parent=self)
+                qt_connect(
+                    (video_driver.video_ready, self.load_video_finish),
+                    (video_driver.time_changed, self.time_changed),
+                    (video_driver.playback_status_changed, self.playback_status_changed),
+                    (video_driver.error, self.video_driver_error),
+                    (video_driver.crash, self.crash),
+                    (video_driver.update_status, self.update_status),
+                    (self.load_video, video_driver.load_video),
+                )
+                return video_driver
+
         vlc_options = get_vlc_options(self.video_params)
         self._log.debug(f"vlc_options: {vlc_options}")
 

@@ -13,6 +13,7 @@ URL_ALLOWED_SCHEMES = {
     "mms",
     "mmsh",
     "pva",
+    "pv",
 }
 URL_MAX_LENGTH = 2083
 
